@@ -8,6 +8,10 @@ import requests
 import json
 from datetime import timedelta
 import whisper
+import gdown
+
+
+
 
 # ====== 前端設定 ======
 st.set_page_config(page_title="影片語音轉文字 + 摘要系統", layout="wide")
@@ -23,15 +27,15 @@ def download_from_youtube(url):
     output_path = tempfile.mktemp(suffix=".mp4")
     subprocess.call(["yt-dlp", "-f", "bestaudio", "-o", output_path, url])
     return output_path
+    
+
 
 def download_from_gdrive(url):
     file_id = url.split("/d/")[1].split("/")[0]
-    dl_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    response = requests.get(dl_url)
     output_path = tempfile.mktemp(suffix=".mp4")
-    with open(output_path, 'wb') as f:
-        f.write(response.content)
+    gdown.download(f"https://drive.google.com/uc?id={file_id}", output_path, quiet=False)
     return output_path
+
 
 def extract_audio(video_path):
     audio_path = tempfile.mktemp(suffix=".wav")
