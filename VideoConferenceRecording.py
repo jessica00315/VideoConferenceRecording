@@ -35,7 +35,8 @@ def download_from_gdrive(url):
 
 def extract_audio(video_path):
     audio_path = tempfile.mktemp(suffix=".wav")
-    result = subprocess.run(["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path], capture_output=True, text=True)
+    ffmpeg_path = "/usr/bin/ffmpeg"  # 明確指定 ffmpeg 路徑
+    result = subprocess.run([ffmpeg_path, "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg 轉檔失敗：{result.stderr}")
     return audio_path
