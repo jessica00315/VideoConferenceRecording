@@ -7,6 +7,7 @@ import base64
 import requests
 import json
 from datetime import timedelta
+import whisper
 
 # ====== 前端設定 ======
 st.set_page_config(page_title="影片語音轉文字 + 摘要系統", layout="wide")
@@ -37,19 +38,23 @@ def extract_audio(video_path):
     subprocess.call(["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path])
     return audio_path
 
-# ====== 模擬語音辨識（假資料示範） ======
-def fake_transcription(audio_path):
-    with open(audio_path, "rb") as f:
-        audio_content = f.read()
-    transcript_text = """[00:00:12] 總經理：我們今天要討論的是永續包材的推進。
-[00:01:35] 行銷主管：我建議下季聚焦於核心產品推廣。"""
-    return transcript_text
+# ====== Whisper 語音辨識（繁體中文） ======
+def transcribe_audio(audio_path):
+    model = whisper.load_model("base")
+    result = model.transcribe(audio_path, language="zh")
+    segments = result["segments"]
+    transcript_lines = []
+    for seg in segments:
+        start_time = str(timedelta(seconds=int(seg["start"])))
+        speaker_text = seg["text"].strip()
+        transcript_lines.append(f"[{start_time}] {speaker_text}")
+    return "\n".join(transcript_lines)
 
 # ====== Gemini 摘要功能 ======
 def summarize_with_gemini(transcript_text, api_key):
     prompt = "你是一位企業助理，請針對以下逐字稿依照發言者整理條列式摘要：\n\n" + transcript_text
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
     headers = {
         "Content-Type": "application/json",
@@ -78,12 +83,12 @@ def generate_html(transcript_text, summary):
     </style></head><body>
     <h2>🎧 語音逐字稿</h2>
     <pre>
-    """ + transcript_text + """
+""" + transcript_text + """
     </pre>
     <h2>🧠 AI 條列摘要</h2>
     <pre>
-    """ + summary + """
-    </pre></body></html>"
+""" + summary + """
+    </pre></body></html>"""
     return html
 
 # ====== 主流程執行區塊 ======
@@ -108,8 +113,8 @@ if 'video_path' in locals() and gemini_api_key:
     st.info("🎧 擷取音訊中…")
     audio_path = extract_audio(video_path)
 
-    st.info("🔍 擷取語音文字中…（模擬假資料）")
-    transcript_text = fake_transcription(audio_path)
+    st.info("🔍 擷取語音文字中…（Whisper 模型）")
+    transcript_text = transcribe_audio(audio_path)
 
     st.success("📝 語音文字擷取完成：")
     st.code(transcript_text, language="text")
