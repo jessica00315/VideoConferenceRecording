@@ -81,7 +81,9 @@ def generate_html(transcript_text, summary):
     """ + transcript_text + """
     </pre>
     <h2>🧠 AI 條列摘要</h2>
-    <pre>""" + summary + """</pre></body></html>"
+    <pre>
+    """ + summary + """
+    </pre></body></html>"
     return html
 
 # ====== 主流程執行區塊 ======
