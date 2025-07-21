@@ -1,5 +1,0 @@
-streamlit
-openai
-openai-whisper
-torch
-ffmpeg-python
