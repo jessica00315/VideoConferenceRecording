@@ -75,6 +75,12 @@ def summarize_with_gemini(transcript_text, api_key):
         return f"❌ 摘要失敗：{response.text}"
 
 # ====== 產出 HTML ======
+try:
+    subprocess.run(["ffmpeg", "-version"], check=True)
+    st.sidebar.success("✅ ffmpeg 成功安裝")
+except Exception as e:
+    st.sidebar.error(f"❌ ffmpeg 無法執行: {e}")
+    
 def generate_html(transcript_text, summary):
     html = f"""
     <html><head><meta charset='utf-8'>
