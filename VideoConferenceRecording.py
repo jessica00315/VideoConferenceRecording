@@ -8,9 +8,6 @@ import requests
 import json
 from datetime import timedelta
 import whisper
-import gdown
-
-
 
 
 # ====== 前端設定 ======
