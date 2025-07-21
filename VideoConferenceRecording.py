@@ -51,10 +51,11 @@ def summarize_with_gemini(text_blocks, api_key):
     for blk in text_blocks:
         prompt += f"【{blk['speaker']}】：{blk['text']}\n"
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
     headers = {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-goog-api-key": api_key  # ✅ 正確 header
     }
 
     payload = {
@@ -67,7 +68,6 @@ def summarize_with_gemini(text_blocks, api_key):
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     else:
         return f"❌ 摘要失敗：{response.text}"
-
 
 # ====== 產出 HTML ======
 def generate_html(transcript, summary):
