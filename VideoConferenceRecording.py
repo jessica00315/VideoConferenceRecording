@@ -6,22 +6,34 @@ import subprocess
 import base64
 import requests
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 import whisper
 
-# ====== 前端設定 ======
+# ====== 設定與初始化 ======
 st.set_page_config(page_title="影片語音轉文字 + 摘要系統", layout="wide")
 st.title("🎧 AI 語音轉文字＋角色摘要工具（繁體中文）")
+
+log_path = "log.txt"
+if not os.path.exists(log_path):
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("==== 使用紀錄 ====\n")
+
+def write_log(message):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(f"[{now}] {message}\n")
 
 # ====== 使用者輸入 ======
 st.sidebar.header("📥 影片來源與 API 設定")
 input_mode = st.sidebar.radio("選擇影片來源：", ["上傳影片檔", "YouTube 連結", "Google Drive 連結"])
 gemini_api_key = st.sidebar.text_input("請輸入 Google Gemini API Key", type="password")
+cleanup_files = st.sidebar.checkbox("✅ 任務完成後自動刪除影片與音訊檔案", value=True)
 
-# ====== 處理影片來源 ======
+# ====== 影片來源處理 ======
 def download_from_youtube(url):
     output_path = tempfile.mktemp(suffix=".mp4")
     subprocess.call(["yt-dlp", "-f", "bestaudio", "-o", output_path, url])
+    write_log(f"從 YouTube 下載影片：{url}")
     return output_path
 
 def download_from_gdrive(url):
@@ -31,16 +43,12 @@ def download_from_gdrive(url):
     output_path = tempfile.mktemp(suffix=".mp4")
     with open(output_path, 'wb') as f:
         f.write(response.content)
+    write_log(f"從 Google Drive 下載影片：{url}")
     return output_path
 
 def extract_audio(video_path):
     audio_path = tempfile.mktemp(suffix=".wav")
-    try:
-        # 確認 ffmpeg 可用
-        subprocess.run(["ffmpeg", "-version"], check=True)
-    except Exception as e:
-        raise RuntimeError(f"ffmpeg 無法執行: {e}")
-    
+    subprocess.run(["ffmpeg", "-version"], check=True)
     result = subprocess.run(
         ["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path],
         capture_output=True,
@@ -48,9 +56,10 @@ def extract_audio(video_path):
     )
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg 轉檔失敗：{result.stderr}")
+    write_log(f"從影片擷取音訊：{video_path} -> {audio_path}")
     return audio_path
 
-# ====== Whisper 語音辨識（繁體中文） ======
+# ====== Whisper 語音辨識 ======
 def transcribe_audio(audio_path):
     model = whisper.load_model("base")
     result = model.transcribe(audio_path, language="zh")
@@ -60,37 +69,24 @@ def transcribe_audio(audio_path):
         start_time = str(timedelta(seconds=int(seg["start"])))
         speaker_text = seg["text"].strip()
         transcript_lines.append(f"[{start_time}] {speaker_text}")
+    write_log(f"語音辨識完成：{audio_path}")
     return "\n".join(transcript_lines)
 
-# ====== Gemini 摘要功能 ======
+# ====== Gemini 摘要 ======
 def summarize_with_gemini(transcript_text, api_key):
     prompt = "你是一位企業助理，請針對以下逐字稿依照發言者整理條列式摘要：\n\n" + transcript_text
-
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-goog-api-key": api_key
-    }
-
-    payload = {
-        "contents": [{ "parts": [{ "text": prompt }] }]
-    }
-
+    headers = { "Content-Type": "application/json", "X-goog-api-key": api_key }
+    payload = { "contents": [{ "parts": [{ "text": prompt }] }] }
     response = requests.post(url, headers=headers, json=payload)
-
     if response.status_code == 200:
+        write_log("呼叫 Gemini 取得摘要成功")
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     else:
+        write_log(f"Gemini 摘要失敗：{response.text}")
         return f"❌ 摘要失敗：{response.text}"
 
 # ====== 產出 HTML ======
-try:
-    subprocess.run(["ffmpeg", "-version"], check=True)
-    st.sidebar.success("✅ ffmpeg 成功安裝")
-except Exception as e:
-    st.sidebar.error(f"❌ ffmpeg 無法執行: {e}")
-    
 def generate_html(transcript_text, summary):
     html = f"""
     <html><head><meta charset='utf-8'>
@@ -109,14 +105,23 @@ def generate_html(transcript_text, summary):
     </pre></body></html>"""
     return html
 
-# ====== 主流程執行區塊 ======
+# ====== ffmpeg 測試 ======
+try:
+    subprocess.run(["ffmpeg", "-version"], check=True)
+    st.sidebar.success("✅ ffmpeg 成功安裝")
+except Exception as e:
+    st.sidebar.error(f"❌ ffmpeg 無法執行: {e}")
+    write_log(f"ffmpeg 錯誤：{e}")
+
+# ====== 主流程執行區 ======
 video_path = None
 if input_mode == "上傳影片檔":
-    uploaded = st.file_uploader("請上傳影片檔（MP4, MP3）", type=["mp4", "mp3", "wav"])
+    uploaded = st.file_uploader("請上傳影片檔（MP4, MP3, WAV）", type=["mp4", "mp3", "wav"])
     if uploaded:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded.name)[1]) as tmp:
             tmp.write(uploaded.read())
             video_path = tmp.name
+        write_log(f"使用者上傳影片：{uploaded.name}")
 elif input_mode == "YouTube 連結":
     yt_url = st.sidebar.text_input("請輸入 YouTube 連結")
     if yt_url:
@@ -128,9 +133,7 @@ elif input_mode == "Google Drive 連結":
         st.sidebar.info("正在下載 Google Drive 檔案…")
         video_path = download_from_gdrive(gdrive_url)
 
-# ====== 加入執行按鈕與自動清除選項 ======
-cleanup_files = st.checkbox("✅ 任務完成後自動刪除影片與音訊檔案", value=True)
-
+# ====== 啟動分析流程 ======
 if video_path and gemini_api_key:
     if st.button("▶️ 開始語音辨識與摘要"):
         audio_path = None
@@ -156,12 +159,19 @@ if video_path and gemini_api_key:
 
         except Exception as e:
             st.error(f"❌ 發生錯誤：{e}")
+            write_log(f"❌ 發生錯誤：{e}")
 
         finally:
             if cleanup_files:
                 if video_path and os.path.exists(video_path):
                     os.remove(video_path)
+                    write_log(f"✅ 已刪除影片：{video_path}")
                     st.sidebar.info("🧹 已自動刪除影片檔")
                 if audio_path and os.path.exists(audio_path):
                     os.remove(audio_path)
+                    write_log(f"✅ 已刪除音訊：{audio_path}")
                     st.sidebar.info("🧹 已自動刪除音訊檔")
+
+# ====== 提供 LOG 檔案下載 ======
+with open(log_path, "r", encoding="utf-8") as f:
+    st.sidebar.download_button("📄 下載操作紀錄 Log", f, file_name="轉錄紀錄_log.txt")
