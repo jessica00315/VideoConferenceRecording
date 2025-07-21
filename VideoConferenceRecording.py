@@ -47,26 +47,28 @@ def fake_transcription(audio_path):
 
 # ====== Gemini 摘要功能 ======
 def summarize_with_gemini(text_blocks, api_key):
-    prompt = """你是一位企業助理，請針對以下逐字稿依照發言者整理條列式摘要：
+    prompt = """你是一位企業永續單位的專案助理，請針對以下逐字稿依照發言者整理條列式摘要：
 
 """
     for blk in text_blocks:
         prompt += f"【{blk['speaker']}】：{blk['text']}\n"
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-    }
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-    response = requests.post(url, headers=headers, data=json.dumps(payload))
+        # ✅ 正確 URL：把 API Key 放進 query string
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+    
+        # ✅ 正確 headers：不要放 Authorization
+        headers = {
+            "Content-Type": "application/json"
+        }
+    
+        # ✅ 正確 payload
+        payload = {
+            "contents": [{ "parts": [{ "text": prompt }] }]
+        }
+    
+        # ✅ 正確發送方式：用 json=payload（不用自己轉 json）
+        response = requests.post(url, headers=headers, json=payload)
 
-    if response.status_code == 200:
-        return response.json()['candidates'][0]['content']['parts'][0]['text']
-    else:
-        return f"❌ 摘要失敗：{response.text}"
 
 # ====== 產出 HTML ======
 def generate_html(transcript, summary):
