@@ -35,7 +35,9 @@ def download_from_gdrive(url):
 
 def extract_audio(video_path):
     audio_path = tempfile.mktemp(suffix=".wav")
-    subprocess.call(["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path])
+    result = subprocess.run(["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg 轉檔失敗：{result.stderr}")
     return audio_path
 
 # ====== Whisper 語音辨識（繁體中文） ======
@@ -74,20 +76,20 @@ def summarize_with_gemini(transcript_text, api_key):
 
 # ====== 產出 HTML ======
 def generate_html(transcript_text, summary):
-    html = """
+    html = f"""
     <html><head><meta charset='utf-8'>
     <style>
-    body { font-family: Arial; line-height: 1.6; padding: 20px; }
-    pre { background: #f8f8f8; padding: 10px; border-radius: 5px; }
-    h2 { color: #2c3e50; }
+    body {{ font-family: Arial; line-height: 1.6; padding: 20px; }}
+    pre {{ background: #f8f8f8; padding: 10px; border-radius: 5px; }}
+    h2 {{ color: #2c3e50; }}
     </style></head><body>
     <h2>🎧 語音逐字稿</h2>
     <pre>
-""" + transcript_text + """
+{transcript_text}
     </pre>
     <h2>🧠 AI 條列摘要</h2>
     <pre>
-""" + summary + """
+{summary}
     </pre></body></html>"""
     return html
 
@@ -113,21 +115,24 @@ elif input_mode == "Google Drive 連結":
 # ====== 加入執行按鈕 ======
 if video_path and gemini_api_key:
     if st.button("▶️ 開始語音辨識與摘要"):
-        st.info("🎧 擷取音訊中…")
-        audio_path = extract_audio(video_path)
+        try:
+            st.info("🎧 擷取音訊中…")
+            audio_path = extract_audio(video_path)
 
-        st.info("🔍 擷取語音文字中…（Whisper 模型）")
-        transcript_text = transcribe_audio(audio_path)
+            st.info("🔍 擷取語音文字中…（Whisper 模型）")
+            transcript_text = transcribe_audio(audio_path)
 
-        st.success("📝 語音文字擷取完成：")
-        st.code(transcript_text, language="text")
+            st.success("📝 語音文字擷取完成：")
+            st.code(transcript_text, language="text")
 
-        st.info("🧠 呼叫 Gemini 進行摘要中…")
-        summary = summarize_with_gemini(transcript_text, gemini_api_key)
-        st.text_area("🔎 AI 條列摘要結果：", summary, height=300)
+            st.info("🧠 呼叫 Gemini 進行摘要中…")
+            summary = summarize_with_gemini(transcript_text, gemini_api_key)
+            st.text_area("🔎 AI 條列摘要結果：", summary, height=300)
 
-        st.info("💾 產出 HTML 檔案…")
-        html_str = generate_html(transcript_text, summary)
-        b64 = base64.b64encode(html_str.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
-        st.markdown(href, unsafe_allow_html=True)
+            st.info("💾 產出 HTML 檔案…")
+            html_str = generate_html(transcript_text, summary)
+            b64 = base64.b64encode(html_str.encode()).decode()
+            href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
+            st.markdown(href, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"❌ 發生錯誤：{e}")
