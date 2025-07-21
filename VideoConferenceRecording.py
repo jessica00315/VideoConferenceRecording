@@ -92,6 +92,7 @@ def generate_html(transcript_text, summary):
     return html
 
 # ====== 主流程執行區塊 ======
+video_path = None
 if input_mode == "上傳影片檔":
     uploaded = st.file_uploader("請上傳影片檔（MP4, MP3）", type=["mp4", "mp3", "wav"])
     if uploaded:
@@ -109,22 +110,24 @@ elif input_mode == "Google Drive 連結":
         st.sidebar.info("正在下載 Google Drive 檔案…")
         video_path = download_from_gdrive(gdrive_url)
 
-if 'video_path' in locals() and gemini_api_key:
-    st.info("🎧 擷取音訊中…")
-    audio_path = extract_audio(video_path)
+# ====== 加入執行按鈕 ======
+if video_path and gemini_api_key:
+    if st.button("▶️ 開始語音辨識與摘要"):
+        st.info("🎧 擷取音訊中…")
+        audio_path = extract_audio(video_path)
 
-    st.info("🔍 擷取語音文字中…（Whisper 模型）")
-    transcript_text = transcribe_audio(audio_path)
+        st.info("🔍 擷取語音文字中…（Whisper 模型）")
+        transcript_text = transcribe_audio(audio_path)
 
-    st.success("📝 語音文字擷取完成：")
-    st.code(transcript_text, language="text")
+        st.success("📝 語音文字擷取完成：")
+        st.code(transcript_text, language="text")
 
-    st.info("🧠 呼叫 Gemini 進行摘要中…")
-    summary = summarize_with_gemini(transcript_text, gemini_api_key)
-    st.text_area("🔎 AI 條列摘要結果：", summary, height=300)
+        st.info("🧠 呼叫 Gemini 進行摘要中…")
+        summary = summarize_with_gemini(transcript_text, gemini_api_key)
+        st.text_area("🔎 AI 條列摘要結果：", summary, height=300)
 
-    st.info("💾 產出 HTML 檔案…")
-    html_str = generate_html(transcript_text, summary)
-    b64 = base64.b64encode(html_str.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
-    st.markdown(href, unsafe_allow_html=True)
+        st.info("💾 產出 HTML 檔案…")
+        html_str = generate_html(transcript_text, summary)
+        b64 = base64.b64encode(html_str.encode()).decode()
+        href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
+        st.markdown(href, unsafe_allow_html=True)
