@@ -37,25 +37,23 @@ def extract_audio(video_path):
     subprocess.call(["ffmpeg", "-i", video_path, "-ar", "16000", "-ac", "1", "-y", audio_path])
     return audio_path
 
-# ====== 語音辨識（使用 Google Speech-to-Text） ======
+# ====== 模擬語音辨識（假資料示範） ======
 def fake_transcription(audio_path):
-    # 模擬語音辨識輸出（請替換為真正 Google Speech-to-Text 調用）
-    return [
-        {"start": 12, "speaker": "總經理", "text": "我們今天要討論的是永續包材的推進。"},
-        {"start": 95, "speaker": "行銷主管", "text": "我建議下季聚焦於核心產品推廣。"},
-    ]
+    with open(audio_path, "rb") as f:
+        audio_content = f.read()
+    transcript_text = """[00:00:12] 總經理：我們今天要討論的是永續包材的推進。
+[00:01:35] 行銷主管：我建議下季聚焦於核心產品推廣。"""
+    return transcript_text
 
 # ====== Gemini 摘要功能 ======
-def summarize_with_gemini(text_blocks, api_key):
-    prompt = "你是一位企業助理，請針對以下逐字稿依照發言者整理條列式摘要：\n\n"
-    for blk in text_blocks:
-        prompt += f"【{blk['speaker']}】：{blk['text']}\n"
+def summarize_with_gemini(transcript_text, api_key):
+    prompt = "你是一位企業助理，請針對以下逐字稿依照發言者整理條列式摘要：\n\n" + transcript_text
 
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
     headers = {
         "Content-Type": "application/json",
-        "X-goog-api-key": api_key  # ✅ 正確 header
+        "X-goog-api-key": api_key
     }
 
     payload = {
@@ -70,26 +68,20 @@ def summarize_with_gemini(text_blocks, api_key):
         return f"❌ 摘要失敗：{response.text}"
 
 # ====== 產出 HTML ======
-def generate_html(transcript, summary):
+def generate_html(transcript_text, summary):
     html = """
     <html><head><meta charset='utf-8'>
     <style>
     body { font-family: Arial; line-height: 1.6; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 40px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f0f0f0; }
+    pre { background: #f8f8f8; padding: 10px; border-radius: 5px; }
     h2 { color: #2c3e50; }
     </style></head><body>
     <h2>🎧 語音逐字稿</h2>
-    <table><tr><th>時間</th><th>發言者</th><th>發言內容</th></tr>
-    """
-    for item in transcript:
-        time_str = str(timedelta(seconds=int(item['start'])))
-        html += f"<tr><td>{time_str}</td><td>{item['speaker']}</td><td>{item['text']}</td></tr>"
-    html += "</table>"
-    html += "<h2>🧠 AI 條列摘要</h2>"
-    html += summary.replace("\n", "<br>")
-    html += "</body></html>"
+    <pre>
+    """ + transcript_text + """
+    </pre>
+    <h2>🧠 AI 條列摘要</h2>
+    <pre>""" + summary + """</pre></body></html>"
     return html
 
 # ====== 主流程執行區塊 ======
@@ -114,19 +106,18 @@ if 'video_path' in locals() and gemini_api_key:
     st.info("🎧 擷取音訊中…")
     audio_path = extract_audio(video_path)
 
-    st.info("🔍 語音辨識中…（示意版，請串接 Google Speech-to-Text）")
-    transcript = fake_transcription(audio_path)  # TODO: 替換為正式辨識
+    st.info("🔍 擷取語音文字中…（模擬假資料）")
+    transcript_text = fake_transcription(audio_path)
 
-    st.success("📝 語音轉文字完成！")
-    for item in transcript:
-        st.markdown(f"`[{str(timedelta(seconds=item['start']))}]` **{item['speaker']}**：{item['text']}")
+    st.success("📝 語音文字擷取完成：")
+    st.code(transcript_text, language="text")
 
     st.info("🧠 呼叫 Gemini 進行摘要中…")
-    summary = summarize_with_gemini(transcript, gemini_api_key)
+    summary = summarize_with_gemini(transcript_text, gemini_api_key)
     st.text_area("🔎 AI 條列摘要結果：", summary, height=300)
 
     st.info("💾 產出 HTML 檔案…")
-    html_str = generate_html(transcript, summary)
+    html_str = generate_html(transcript_text, summary)
     b64 = base64.b64encode(html_str.encode()).decode()
     href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
     st.markdown(href, unsafe_allow_html=True)
