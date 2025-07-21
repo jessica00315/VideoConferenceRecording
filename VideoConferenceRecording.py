@@ -9,7 +9,6 @@ import json
 from datetime import timedelta
 import whisper
 
-
 # ====== 前端設定 ======
 st.set_page_config(page_title="影片語音轉文字 + 摘要系統", layout="wide")
 st.title("🎧 AI 語音轉文字＋角色摘要工具（繁體中文）")
@@ -24,7 +23,6 @@ def download_from_youtube(url):
     output_path = tempfile.mktemp(suffix=".mp4")
     subprocess.call(["yt-dlp", "-f", "bestaudio", "-o", output_path, url])
     return output_path
-    
 
 def download_from_gdrive(url):
     file_id = url.split("/d/")[1].split("/")[0]
@@ -34,7 +32,6 @@ def download_from_gdrive(url):
     with open(output_path, 'wb') as f:
         f.write(response.content)
     return output_path
-
 
 def extract_audio(video_path):
     audio_path = tempfile.mktemp(suffix=".wav")
