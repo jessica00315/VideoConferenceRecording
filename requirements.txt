@@ -4,3 +4,6 @@ openai>=1.0.0
 openai-whisper
 torch
 ffmpeg-python
+
+yt-dlp
+requests
