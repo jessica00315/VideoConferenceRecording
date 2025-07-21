@@ -63,15 +63,37 @@ def extract_audio(video_path):
     return audio_path
 
 def transcribe_audio(audio_path):
-    model = whisper.load_model("base")
-    result = model.transcribe(audio_path, language="zh")
+    import whisper
+    from datetime import timedelta
+
+    st.info("🔍 擷取語音文字中…（Whisper 模型）")
+    start_time = time.time()
+
+    model = whisper.load_model("base")  # 你也可以改成 "small" 會比較快
+
+    # 執行辨識，取得 segment 結果
+    result = model.transcribe(audio_path, language="zh", verbose=False)
     segments = result["segments"]
     transcript_lines = []
-    for seg in segments:
-        start_time = str(timedelta(seconds=int(seg["start"])))
-        speaker_text = seg["text"].strip()
-        transcript_lines.append(f"[{start_time}] {speaker_text}")
-    write_log(f"語音辨識完成：{audio_path}")
+
+    # 加入進度條顯示
+    progress_bar = st.progress(0)
+    total_segments = len(segments)
+
+    for i, seg in enumerate(segments):
+        start = str(timedelta(seconds=int(seg["start"])))
+        text = seg["text"].strip()
+        transcript_lines.append(f"[{start}] {text}")
+
+        percent = int((i + 1) / total_segments * 100)
+        progress_bar.progress(percent)
+
+    progress_bar.empty()
+    end_time = time.time()
+
+    st.success(f"📝 語音文字擷取完成！耗時：{end_time - start_time:.2f} 秒")
+    write_log(f"語音辨識完成：{audio_path}，共 {total_segments} 段，耗時 {end_time - start_time:.2f} 秒")
+
     return "\n".join(transcript_lines)
 
 def summarize_with_gemini(transcript_text, api_key):
