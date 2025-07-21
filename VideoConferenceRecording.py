@@ -128,9 +128,12 @@ elif input_mode == "Google Drive 連結":
         st.sidebar.info("正在下載 Google Drive 檔案…")
         video_path = download_from_gdrive(gdrive_url)
 
-# ====== 加入執行按鈕 ======
+# ====== 加入執行按鈕與自動清除選項 ======
+cleanup_files = st.checkbox("✅ 任務完成後自動刪除影片與音訊檔案", value=True)
+
 if video_path and gemini_api_key:
     if st.button("▶️ 開始語音辨識與摘要"):
+        audio_path = None
         try:
             st.info("🎧 擷取音訊中…")
             audio_path = extract_audio(video_path)
@@ -150,5 +153,15 @@ if video_path and gemini_api_key:
             b64 = base64.b64encode(html_str.encode()).decode()
             href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
             st.markdown(href, unsafe_allow_html=True)
+
         except Exception as e:
             st.error(f"❌ 發生錯誤：{e}")
+
+        finally:
+            if cleanup_files:
+                if video_path and os.path.exists(video_path):
+                    os.remove(video_path)
+                    st.sidebar.info("🧹 已自動刪除影片檔")
+                if audio_path and os.path.exists(audio_path):
+                    os.remove(audio_path)
+                    st.sidebar.info("🧹 已自動刪除音訊檔")
