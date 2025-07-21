@@ -8,6 +8,7 @@ import requests
 import json
 from datetime import datetime, timedelta
 import whisper
+import time
 
 # ====== 設定與初始化 ======
 st.set_page_config(page_title="影片語音轉文字 + 摘要系統", layout="wide")
@@ -138,17 +139,27 @@ if video_path and gemini_api_key:
     if st.button("▶️ 開始語音辨識與摘要"):
         audio_path = None
         try:
+            # 👉 加入計時：擷取音訊
+            start_audio = time.time()
             st.info("🎧 擷取音訊中…")
             audio_path = extract_audio(video_path)
+            end_audio = time.time()
+            st.success(f"🎧 音訊擷取完成！耗時：{end_audio - start_audio:.2f} 秒")
 
+            # 👉 加入計時：語音辨識
             st.info("🔍 擷取語音文字中…（Whisper 模型）")
+            start_transcribe = time.time()
             transcript_text = transcribe_audio(audio_path)
-
-            st.success("📝 語音文字擷取完成：")
+            end_transcribe = time.time()
+            st.success(f"📝 語音文字擷取完成！耗時：{end_transcribe - start_transcribe:.2f} 秒")
             st.code(transcript_text, language="text")
 
+            # 👉 加入計時：Gemini 摘要
             st.info("🧠 呼叫 Gemini 進行摘要中…")
+            start_summary = time.time()
             summary = summarize_with_gemini(transcript_text, gemini_api_key)
+            end_summary = time.time()
+            st.success(f"🧠 Gemini 摘要完成！耗時：{end_summary - start_summary:.2f} 秒")
             st.text_area("🔎 AI 條列摘要結果：", summary, height=300)
 
             st.info("💾 產出 HTML 檔案…")
