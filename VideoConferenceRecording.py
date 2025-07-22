@@ -130,7 +130,7 @@ def generate_html(transcript_text, summary):
 # ====== 處理影片來源 ======
 video_path = None
 if input_mode == "上傳影片檔":
-    uploaded = st.file_uploader("請上傳影片檔（MP4, MP3, WAV）", type=["mp4", "mp3", "wav"])
+    uploaded = st.file_uploader("請上傳影片檔（MP4, MP3, WAV）", type=["mp4", "mp3", "wav","webm"])
     if uploaded:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded.name)[1]) as tmp:
             tmp.write(uploaded.read())
