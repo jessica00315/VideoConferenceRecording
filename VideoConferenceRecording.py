@@ -11,7 +11,6 @@ import time
 import gc
 from datetime import datetime, timedelta
 
-# ====== 頁面設定 ======
 st.set_page_config(page_title="影片語音轉文字 + 摘要系統", layout="wide")
 st.title("🎧 AI 語音轉文字＋角色摘要工具（繁體中文）")
 
@@ -25,13 +24,11 @@ def write_log(message):
     with open(log_path, "a", encoding="utf-8") as f:
         f.write(f"\n[{now}] {message}")
 
-# ====== 側欄設定 ======
 st.sidebar.header("📥 影片來源與 API 設定")
 input_mode = st.sidebar.radio("選擇影片來源：", ["上傳影片檔", "YouTube 連結", "Google Drive 連結"])
 gemini_api_key = st.sidebar.text_input("請輸入 Google Gemini API Key", type="password")
 cleanup_files = st.sidebar.checkbox("✅ 任務完成後自動刪除影片與音訊檔案", value=True)
 
-# ====== ffmpeg 測試 ======
 try:
     subprocess.run(["ffmpeg", "-version"], check=True)
     st.sidebar.success("✅ ffmpeg 成功安裝")
@@ -39,7 +36,6 @@ except Exception as e:
     st.sidebar.error(f"❌ ffmpeg 無法執行: {e}")
     write_log(f"ffmpeg 錯誤：{e}")
 
-# ====== 影片處理函式 ======
 def download_from_youtube(url):
     try:
         output_path = tempfile.mktemp(suffix=".mp4")
@@ -85,7 +81,6 @@ def transcribe_audio(audio_path):
         result = model.transcribe(audio_path, language="zh", verbose=False)
         segments = result["segments"]
         transcript_lines = []
-
         progress_bar = st.progress(0)
         total_segments = len(segments)
         for i, seg in enumerate(segments):
@@ -95,7 +90,6 @@ def transcribe_audio(audio_path):
             percent = int((i + 1) / total_segments * 100)
             progress_bar.progress(percent)
         progress_bar.empty()
-
         end_time = time.time()
         st.success(f"📝 語音文字擷取完成！耗時：{end_time - start_time:.2f} 秒")
         write_log(f"語音辨識完成：共 {total_segments} 段，耗時 {end_time - start_time:.2f} 秒")
@@ -138,14 +132,22 @@ def generate_html(transcript_text, summary):
     """
 
 # ====== 處理影片來源 ======
+MAX_FILE_SIZE_MB = 200
 video_path = None
 if input_mode == "上傳影片檔":
     uploaded = st.file_uploader("請上傳影片檔（MP4, MP3, WAV, WEBM）", type=["mp4", "mp3", "wav", "webm"])
     if uploaded:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded.name)[1]) as tmp:
-            tmp.write(uploaded.read())
-            video_path = tmp.name
-        write_log(f"使用者上傳影片：{uploaded.name}")
+        uploaded.seek(0, os.SEEK_END)
+        file_size_mb = uploaded.tell() / (1024 * 1024)
+        uploaded.seek(0)
+        if file_size_mb > MAX_FILE_SIZE_MB:
+            st.error(f"🚨 檔案大小為 {file_size_mb:.2f} MB，超過限制（200MB），請重新上傳較小的檔案。")
+            write_log(f"❌ 上傳失敗：檔案超過限制 ({file_size_mb:.2f} MB)")
+        else:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded.name)[1]) as tmp:
+                tmp.write(uploaded.read())
+                video_path = tmp.name
+            write_log(f"使用者上傳影片：{uploaded.name}（{file_size_mb:.2f} MB）")
 elif input_mode == "YouTube 連結":
     yt_url = st.sidebar.text_input("請輸入 YouTube 連結")
     if yt_url:
@@ -157,7 +159,7 @@ elif input_mode == "Google Drive 連結":
         st.sidebar.info("正在下載 Google Drive 檔案…")
         video_path = download_from_gdrive(gdrive_url)
 
-# ====== 主流程執行區 ======
+# ====== 主流程 ======
 if video_path and gemini_api_key:
     if st.button("▶️ 開始語音辨識與摘要"):
         audio_path = None
@@ -184,11 +186,9 @@ if video_path and gemini_api_key:
             href = f'<a href="data:text/html;base64,{b64}" download="transcript_summary.html">📥 下載完整 HTML 報告</a>'
             st.markdown(href, unsafe_allow_html=True)
             write_log("📥 使用者下載 HTML 成果報告")
-
         except Exception as e:
             st.error(f"❌ 發生錯誤：{e}")
             write_log(f"❌ 發生錯誤：{e}")
-
         finally:
             if cleanup_files:
                 if video_path and os.path.exists(video_path):
@@ -201,6 +201,6 @@ if video_path and gemini_api_key:
                     write_log(f"✅ 已刪除音訊：{audio_path}")
             gc.collect()
 
-# ====== 提供 LOG 下載 ======
+# ====== Log 下載按鈕 ======
 with open(log_path, "r", encoding="utf-8") as f:
     st.sidebar.download_button("📄 下載操作紀錄 Log", f, file_name="轉錄紀錄_log.txt")
