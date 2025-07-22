@@ -1,4 +1,4 @@
-# app.py
+# VideoConferenceRecording.py
 import streamlit as st
 import tempfile
 import os
@@ -27,7 +27,7 @@ def write_log(message):
 st.sidebar.header("📥 影片來源與 API 設定")
 input_mode = st.sidebar.radio("選擇影片來源：", ["上傳影片檔", "YouTube 連結", "Google Drive 連結"])
 gemini_api_key = st.sidebar.text_input("請輸入 Google Gemini API Key", type="password")
-cleanup_files = st.sidebar.checkbox("✅ 任務完成後自動刪除影片與音訊檔案", value=True)
+cleanup_files = st.sidebar.checkbox("任務完成後自動刪除影片與音訊檔案", value=True)
 
 try:
     subprocess.run(["ffmpeg", "-version"], check=True)
@@ -101,7 +101,7 @@ def transcribe_audio(audio_path):
 
 def summarize_with_gemini(transcript_text, api_key):
     try:
-        prompt = "你是一位企業助理，請針對以下逐字稿依照發言者整理條列式摘要：\n\n" + transcript_text
+        prompt = "你是一位永續管理專員，請針對影片進行逐字稿，並依照永續長及企業各單位都可以看得懂的角度對每位發言者的內容整理成條列式摘要：\n\n" + transcript_text
         url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
         headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -124,10 +124,10 @@ def generate_html(transcript_text, summary):
     pre {{ background: #f8f8f8; padding: 10px; border-radius: 5px; }}
     h2 {{ color: #2c3e50; }}
     </style></head><body>
-    <h2>🎧 語音逐字稿</h2>
-    <pre>{transcript_text}</pre>
     <h2>🧠 AI 條列摘要</h2>
     <pre>{summary}</pre>
+    <h2>🎧 語音逐字稿</h2>
+    <pre>{transcript_text}</pre>
     </body></html>
     """
 
